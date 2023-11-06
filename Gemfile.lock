@@ -19,6 +19,8 @@ GEM
     json (2.6.3)
     nokogiri (1.15.4-arm64-darwin)
       racc (~> 1.4)
+    nokogiri (1.15.4-x86_64-linux)
+      racc (~> 1.4)
     racc (1.7.3)
     rake (13.1.0)
     semantic_logger (4.14.0)
@@ -28,6 +30,7 @@ GEM
 
 PLATFORMS
   arm64-darwin-22
+  x86_64-linux
 
 DEPENDENCIES
   furaffinity!
