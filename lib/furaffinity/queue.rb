@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "fileutils"
-require "shellwords"
 require "yaml"
 
 module Furaffinity
@@ -109,7 +108,7 @@ module Furaffinity
         end
 
         submission_info_path = create_submission_info(file)
-        open_editor submission_info_path
+        CliUtils.open_editor submission_info_path
 
         queue << file
         upload_status[file] = {
@@ -151,7 +150,7 @@ module Furaffinity
     end
 
     def reorder
-      open_editor fa_info_path("queue.yml")
+      CliUtils.open_editor fa_info_path("queue.yml")
     end
 
     def upload(wait_time = 60)
@@ -209,20 +208,6 @@ module Furaffinity
       end
 
       submission_info_path
-    end
-
-    def open_editor(file)
-      editor = ENV["FA_EDITOR"] || ENV["VISUAL"] || ENV["EDITOR"]
-      unless editor
-        logger.warn "could not open editor for #{file.inspect}, set one of FA_EDITOR, VISUAL, or EDITOR in your ENV"
-        return
-      end
-
-      system(*Shellwords.shellwords(editor), file).tap do
-        next if $?.exitstatus == 0
-
-        logger.error "could not run #{editor} #{file}, exit code: #{$?.exitstatus}"
-      end
     end
   end
 end
