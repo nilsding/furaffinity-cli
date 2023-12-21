@@ -35,8 +35,8 @@ module Furaffinity
       scrap: false
       lock_comments: false
 
-      # Folder name to place this submission under, leave blank if it should not be in any.
-      folder_name: ""
+      # Create a new folder to place this submission under, leave blank if none should be created.
+      create_folder_name: ""
     YAML
 
     attr_reader :client, :queue_dir, :queue, :upload_status, :file_info

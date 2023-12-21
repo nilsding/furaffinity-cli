@@ -63,9 +63,9 @@ module Furaffinity
       type:    :string,
       desc:    "Keywords, separated by spaces.",
       default: ""
-    option :folder_name,
+    option :create_folder_name,
       type:    :string,
-      desc:    "Place this submission into this folder.",
+      desc:    "Create a new folder and place this submission into it.",
       default: ""
     def upload(file_path)
       set_log_level(options)

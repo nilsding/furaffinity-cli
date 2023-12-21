@@ -73,23 +73,18 @@ module Furaffinity
       adult:   1,
     }.freeze
 
-    def fake_upload(file, title:, rating:, description:, keywords:, folder_name: "", lock_comments: false, scrap: false, type: :submission)
-      type = type.to_sym
-      raise ArgumentError.new("#{type.inspect} is not in #{SUBMISSION_TYPES.inspect}") unless SUBMISSION_TYPES.include?(type)
-      rating = rating.to_sym
-      raise ArgumentError.new("#{rating.inspect} is not in #{RATING_MAP.keys.inspect}") unless RATING_MAP.include?(rating)
+    def fake_upload(file, title:, rating:, description:, keywords:, create_folder_name: "", lock_comments: false, scrap: false, type: :submission)
+      validate_args!(type:, rating:) => { type:, rating: }
+
       raise "not a file" unless file.is_a?(File)
       params = { MAX_FILE_SIZE: "10485760" }
       raise ArgumentError.new("file size of #{file.size} is greater than FA limit of #{params[:MAX_FILE_SIZE]}") if file.size > params[:MAX_FILE_SIZE].to_i
-      "https://..."
+      "https://www.furaffinity.net/view/54328944/?upload-successful"
     end
 
     # @param file [File]
-    def upload(file, title:, rating:, description:, keywords:, folder_name: "", lock_comments: false, scrap: false, type: :submission)
-      type = type.to_sym
-      raise ArgumentError.new("#{type.inspect} is not in #{SUBMISSION_TYPES.inspect}") unless SUBMISSION_TYPES.include?(type)
-      rating = rating.to_sym
-      raise ArgumentError.new("#{rating.inspect} is not in #{RATING_MAP.keys.inspect}") unless RATING_MAP.include?(rating)
+    def upload(file, title:, rating:, description:, keywords:, create_folder_name: "", lock_comments: false, scrap: false, type: :submission)
+      validate_args!(type:, rating:) => { type:, rating: }
 
       client = http_client
 
@@ -143,7 +138,7 @@ module Furaffinity
         message:  description,
         keywords: keywords,
 
-        create_folder_name: folder_name,
+        create_folder_name:,
 
         # finalize button :)
         finalize: "Finalize ",
@@ -165,6 +160,17 @@ module Furaffinity
     end
 
     private
+
+    def validate_args!(type: nil, rating:)
+      if type
+        type = type.to_sym
+        raise ArgumentError.new("#{type.inspect} is not in #{SUBMISSION_TYPES.inspect}") unless SUBMISSION_TYPES.include?(type)
+      end
+      rating = rating.to_sym
+      raise ArgumentError.new("#{rating.inspect} is not in #{RATING_MAP.keys.inspect}") unless RATING_MAP.include?(rating)
+
+      { type:, rating: }
+    end
 
     def parse_response(httpx_response)
       logger.measure_trace "Parsing response" do
