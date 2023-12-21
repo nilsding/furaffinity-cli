@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
 require "json"
+require "tempfile"
 require "thor"
+require "yaml"
 
 module Furaffinity
   class Cli < Thor
@@ -81,6 +83,55 @@ module Furaffinity
       ).transform_keys(&:to_sym)
       url = client.upload(File.new(file_path), **upload_options)
       say "Submission uploaded!  #{url}", :green
+    end
+
+    EDIT_TEMPLATE = <<~YAML
+      ---
+      # Submission info for %<id>s
+
+      # Required field:
+      title: %<title>s
+
+      # Required field
+      description: |-
+      %<description>s
+
+      # Optional field, keywords separated by spaces:
+      keywords: %<keywords>s
+
+      # Required field, one of: [#{Furaffinity::Client::RATING_MAP.keys.join(", ")}]
+      rating: %<rating>s
+
+      scrap: %<scrap>s
+      lock_comments: %<lock_comments>s
+
+      # vim: syntax=yaml
+    YAML
+
+    desc "edit ID", "Edit submission info"
+    def edit_interactive(id)
+      set_log_level(options)
+      config = config_for(options)
+      client = config.new_client
+
+      submission_info = client.submission_info(id)
+      # write template
+      file = Tempfile.new("facli_edit_#{id}")
+      file.puts format(EDIT_TEMPLATE,
+        id:,
+        **submission_info.slice(:title, :keywords, :scrap, :lock_comments).transform_values(&:inspect),
+        description: submission_info.fetch(:message).gsub(/^/, "  "),
+        rating:      submission_info.fetch(:rating),
+      )
+      file.close
+      CliUtils.open_editor file.path, fatal: true
+      params = YAML.safe_load_file(file.path, permitted_classes: [Symbol]).transform_keys(&:to_sym)
+
+      url = client.update(id:, **params)
+      say "Submission updated!  #{url}", :green
+    ensure
+      file.close
+      file.unlink
     end
 
     desc "queue SUBCOMMAND ...ARGS", "Manage an upload queue"

@@ -159,6 +159,87 @@ module Furaffinity
       end
     end
 
+    # Returns submission information from your own gallery.
+    def submission_info(id)
+      client = http_client
+
+      logger.trace { "Retrieving submission information for #{id}" }
+      response = get("/controls/submissions/changeinfo/#{id}/", client:).then(&method(:parse_response))
+
+      {}.tap do |h|
+        h[:title] = response.css("form[name=MsgForm] input[name=title]").first.attr(:value)
+
+        %i[message keywords].each do |field|
+          h[field] = response.css("form[name=MsgForm] textarea[name=#{field}]").first.text
+        end
+
+        h[:rating] = RATING_MAP.invert.fetch(response.css("form[name=MsgForm] input[name=rating][checked]").first.attr(:value).to_i)
+
+        %i[lock_comments scrap].each do |field|
+          h[field] = !!response.css("form[name=MsgForm] input[name=#{field}][checked]").first&.attr(:value)
+        end
+
+        %i[cat atype species gender].each do |field|
+          h[field] = response.css("form[name=MsgForm] select[name=#{field}] option[selected]").first.attr(:value)
+        end
+
+        h[:folder_ids] = response.css("form[name=MsgForm] input[name=\"folder_ids[]\"][checked]").map { _1.attr(:value) }
+      end
+    end
+
+    def fake_update(id:, title:, rating:, description:, keywords:, lock_comments: false, scrap: false)
+      validate_args!(rating:) => { rating: }
+
+      "https://www.furaffinity.net/view/54328944/"
+    end
+
+    # NOTE: only tested with `type=submission`
+    def update(id:, title:, rating:, description:, keywords:, lock_comments: false, scrap: false)
+      validate_args!(rating:) => { rating: }
+
+      client = http_client
+
+      # step 1: get the required keys
+      logger.trace { "Extracting keys from submission #{id}" }
+      response = get("/controls/submissions/changeinfo/#{id}/", client:).then(&method(:parse_response))
+      already_set_params = {
+        key:        response.css("form[name=MsgForm] input[name=key]").first.attr(:value),
+        folder_ids: response.css("form[name=MsgForm] input[name=\"folder_ids[]\"][checked]").map { _1.attr(:value) },
+      }.tap do |h|
+        %i[cat atype species gender].each do |field|
+          h[field] = response.css("form[name=MsgForm] select[name=#{field}] option[selected]").first.attr(:value)
+        end
+      end
+
+      params = {
+        update: "yes",
+
+        rating:   RATING_MAP.fetch(rating),
+        title:    title,
+        message:  description,
+        keywords: keywords,
+
+        **already_set_params,
+
+        # update button ;-)
+        submit: "Update",
+      }
+      params[:lock_comments] = "1" if lock_comments
+      params[:scrap] = "1" if scrap
+
+      logger.debug { "Updating submission #{id}..." }
+      update_response = post("/controls/submissions/changeinfo/#{id}/", form: params, client:)
+      if update_response.status == 302
+        redirect_location = update_response.headers[:location]
+        url = File.join(BASE_URL, redirect_location)
+        logger.info "Updated! #{url}"
+        return url
+      else
+        fa_error = parse_response(update_response).css(".redirect-message").text
+        raise Error.new("FA returned: #{fa_error}")
+      end
+    end
+
     private
 
     def validate_args!(type: nil, rating:)

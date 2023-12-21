@@ -30,6 +30,10 @@ fa notifications
 
 # upload a new submission
 fa upload my_image.png --title "test post please ignore" --description "This is an image as you can see" --rating general --scrap
+
+# interactively update a submission, this needs your preferred editor in ENV
+export EDITOR=vi
+fa edit 54328944
 ```
 
 There is also a way to upload submissions in bulk: `fa queue`
