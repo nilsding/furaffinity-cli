@@ -122,5 +122,10 @@ module Furaffinity
           #{basename} queue clean
     LONG_DESC
     subcommand "queue", CliQueue
+
+    map %w[--version -v] => :__print_version
+
+    desc "--version, -v", "Print the version"
+    def __print_version = puts "furaffinity-cli/#{VERSION}"
   end
 end
