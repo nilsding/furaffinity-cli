@@ -36,6 +36,44 @@ module Furaffinity
 
       # Create a new folder to place this submission under, leave blank if none should be created.
       create_folder_name: ""
+
+      # Run this Ruby code after uploading
+      after_upload: |-
+        # Quick reference
+        #
+        # Available objects:
+        # - `client` (Furaffinity::Client)
+        #   The client object used to interact with FurAffinity.
+        # - `submission_info` (Hash)
+        #   The current submission information of this YAML file.  Keys are symbols.
+        #   To get the description use e.g. `submission_info[:description]`.
+        #   This also contains the ID of the uploaded submission, e.g.
+        #   `submission_info[:id]`.
+        # - `file_info` (Hash)
+        #   A hash of all YAML files.  Format is
+        #   `{ "filename.png" => { submission_info } }`.
+        #   Like `submission_info` it also contains the submission's ID as the `:id`
+        #   field if it's been uploaded.
+        #
+        # Helper functions:
+        # - `submission_url(submission_id)`
+        #   Generates a submission URL, e.g.
+        #   "https://www.furaffinity.net/view/54328944/"
+        # - `link_to(url_or_submission, text)`
+        #   Generates a link.  If the first parameter is a submission info hash it will
+        #   generate the URL using `submission_url(submission_info[:id])`.
+
+        # Remove this `return` if you want to run Ruby code
+        return
+
+        # Append a link to this submission to a previously uploaded one
+        previous_submission = file_info.fetch("previous_file.png")
+        previous_submission[:description] += ("\n\n" + link_to(submission_info, "Alt version 2"))
+        client.update(**previous_submission)
+
+        # Append a link to the previous submission to the current one
+        submission_info[:description] += ("\n\n" + link_to(previous_submission, "Alt version 1"))
+        client.update(**submission_info)
     YAML
 
     attr_reader :client, :queue_dir, :queue, :upload_status, :file_info
@@ -156,12 +194,16 @@ module Furaffinity
     def upload(wait_time = 60)
       raise ArgumentError.new("wait_time must be at least 30") if wait_time < 30
 
+      hook_handler = QueueHook.new(client, file_info)
+
       while file_name = queue.shift
         info = file_info[file_name]
         unless info
           logger.warn "no file info found for #{file_name}, ignoring"
           next
         end
+
+        code = file_info[file_name].delete(:after_upload)
 
         logger.info "Uploading #{info[:title].inspect} (#{file_name.inspect})"
         url = client.upload(
@@ -173,6 +215,11 @@ module Furaffinity
         upload_status[file_name][:url] = url
 
         save
+
+        if code
+          hook_handler.update_ids(upload_status)
+          hook_handler.run_hook(file_name, code)
+        end
 
         unless queue.empty?
           logger.info "Waiting #{wait_time} seconds until the next upload"
